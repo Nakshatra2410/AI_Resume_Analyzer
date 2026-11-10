@@ -6,7 +6,7 @@ from models import User, Resume, Analysis
 from schemas import UserCreate, UserLogin, AnalysisCreate
 from security import hash_password, create_access_token, verify_password
 from dependencies import get_current_user
-from analyzer import compare_skills
+from analyzer import calculate_ats_score
 
 import uuid
 import fitz
@@ -271,7 +271,7 @@ def create_analysis(
         )
 
     # 2. Compare resume skills with job requirements
-    result = compare_skills(
+    result = calculate_ats_score(
         resume.extracted_text,
         analysis_data.job_description
     )
@@ -280,10 +280,11 @@ def create_analysis(
     new_analysis = Analysis(
         resume_id=resume.id,
         job_description=analysis_data.job_description,
-        ats_score=result["skill_match_score"],
+        ats_score=result["ats_score"],
         matched_skills=result["matched_skills"],
         missing_skills=result["missing_skills"],
-        suggestions=[]
+        suggestions=[],
+        score_breakdown=result["score_breakdown"]
     )
 
     try:
@@ -303,11 +304,12 @@ def create_analysis(
         "message": "Resume analyzed successfully",
         "analysis_id": new_analysis.id,
         "resume_id": resume.id,
+        "ats_score": result["ats_score"],
+        "score_breakdown": result["score_breakdown"],
         "resume_skills": result["resume_skills"],
         "required_skills": result["required_skills"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
-        "skill_match_score": result["skill_match_score"]
     }
 
 @app.get("/api/v1/analyses/{analysis_id}")
@@ -335,6 +337,7 @@ def get_analysis(
         "resume_id": analysis.resume_id,
         "job_description": analysis.job_description,
         "skill_match_score": float(analysis.ats_score or 0),
+        "score_breakdown": analysis.score_breakdown,
         "matched_skills": analysis.matched_skills,
         "missing_skills": analysis.missing_skills,
         "suggestions": analysis.suggestions,
@@ -366,6 +369,7 @@ def get_my_analyses(
                 "resume_id": analysis.resume_id,
                 "resume_filename": filename,
                 "skill_match_score": float(analysis.ats_score or 0),
+                "score_breakdown": analysis.score_breakdown,
                 "matched_skills": analysis.matched_skills,
                 "missing_skills": analysis.missing_skills,
                 "created_at": analysis.created_at

@@ -66,6 +66,11 @@ class Analysis(Base):
     suggestions = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")   
     )
+    score_breakdown = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb")
+    )
     created_at = mapped_column(
         TIMESTAMP, server_default=text("CURRENT_TIMESTAMP") 
     )
