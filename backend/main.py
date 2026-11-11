@@ -6,7 +6,7 @@ from models import User, Resume, Analysis
 from schemas import UserCreate, UserLogin, AnalysisCreate
 from security import hash_password, create_access_token, verify_password
 from dependencies import get_current_user
-from analyzer import calculate_ats_score
+from analyzer import calculate_ats_score, generate_suggestions
 
 import uuid
 import fitz
@@ -276,6 +276,8 @@ def create_analysis(
         analysis_data.job_description
     )
 
+    suggestions = generate_suggestions(result)
+
     # 3. Save analysis in PostgreSQL
     new_analysis = Analysis(
         resume_id=resume.id,
@@ -283,7 +285,7 @@ def create_analysis(
         ats_score=result["ats_score"],
         matched_skills=result["matched_skills"],
         missing_skills=result["missing_skills"],
-        suggestions=[],
+        suggestions=suggestions,
         score_breakdown=result["score_breakdown"]
     )
 
@@ -310,6 +312,7 @@ def create_analysis(
         "required_skills": result["required_skills"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
+        "suggestions": suggestions,
     }
 
 @app.get("/api/v1/analyses/{analysis_id}")

@@ -160,12 +160,13 @@ def calculate_experience_score(resume_text: str) -> float:
 
     return 0.0
 
+
 def calculate_project_score(
         resume_text: str,
         required_skills: list[str]
 ) -> float:
 
-    if not resume_text:
+    if not resume_text or not required_skills:
         return 0.0
 
     text = resume_text.casefold()
@@ -178,16 +179,45 @@ def calculate_project_score(
         "project experience:"
     ]
 
-    project_text = ""
+    other_section_headers = [
+        "education:",
+        "experience:",
+        "work experience:",
+        "professional experience:",
+        "skills:",
+        "technical skills:",
+        "certifications:",
+        "achievements:",
+        "summary:",
+        "objective:"
+    ]
+
+    project_start = -1
 
     for header in project_headers:
         position = text.find(header)
 
-        if position != -1:
-            project_text = text[position + len(header):]
-            break
+        if position != -1 and (
+            project_start == -1 or position < project_start
+        ):
+            project_start = position + len(header)
 
-    if not project_text:
+    if project_start == -1:
+        return 0.0
+
+    project_text = text[project_start:]
+
+    section_end = len(project_text)
+
+    for header in other_section_headers:
+        position = project_text.find(header)
+
+        if position != -1 and position < section_end:
+            section_end = position
+
+    project_text = project_text[:section_end]
+
+    if not project_text.strip():
         return 0.0
 
     project_skills = set(extract_skills(project_text))
@@ -272,6 +302,26 @@ def calculate_education_score(resume_text: str) -> float:
 
     return 0.0
 
+def normalize_keyword(word: str) -> str:
+
+    word = word.casefold()
+
+    # Handle common word endings
+    if len(word) > 5 and word.endswith("ing"):
+        word = word[:-3]
+
+    elif len(word) > 4 and word.endswith("ed"):
+        word = word[:-2]
+
+    elif len(word) > 4 and word.endswith("es"):
+        word = word[:-2]
+
+    elif len(word) > 3 and word.endswith("s"):
+        word = word[:-1]
+
+    return word
+
+
 def calculate_keyword_score(
         resume_text: str,
         job_description: str
@@ -289,30 +339,42 @@ def calculate_keyword_score(
         "years", "year", "using", "use", "good"
     }
 
-    # Remove recognized technical skills to avoid double-counting
+    # Remove recognized technical skills to avoid double-counting.
     cleaned_description = job_description.casefold()
 
     for skill, aliases in SKILL_ALIASES.items():
         for alias in [skill] + aliases:
-            pattern = r"(?<![a-z0-9])" + re.escape(
-                alias.casefold()
-            ) + r"(?![a-z0-9])"
-
-            cleaned_description = re.sub(
-                pattern, " ",cleaned_description
+            pattern = (
+                r"(?<![a-z0-9])"
+                + re.escape(alias.casefold())
+                + r"(?![a-z0-9])"
             )
 
+            cleaned_description = re.sub(
+                pattern, " ", cleaned_description
+            )
+
+    # Extract and normalize job-description keywords.
+    job_words = re.findall(
+        r"\b[a-zA-Z]{3,}\b",
+        cleaned_description
+    )
+
     job_keywords = {
-        word for word in re.findall(
-            r"\b[a-zA-Z]{3,}\b", cleaned_description
-        )
+        normalize_keyword(word)
+        for word in job_words
         if word not in stop_words
     }
 
+    # Extract and normalize resume keywords.
+    resume_words = re.findall(
+        r"\b[a-zA-Z]{3,}\b",
+        resume_text.casefold()
+    )
+
     resume_keywords = {
-        word for word in re.findall(
-            r"\b[a-zA-Z]{3,}\b", resume_text.casefold()
-        )
+        normalize_keyword(word)
+        for word in resume_words
     }
 
     if not job_keywords:
@@ -387,3 +449,54 @@ def calculate_ats_score(
         "resume_skills": skill_result["resume_skills"],
         "required_skills": skill_result["required_skills"]
     }
+
+def generate_suggestions(
+        ats_result: dict
+) -> list[str]:
+
+    suggestions = []
+
+    missing_skills = ats_result["missing_skills"]
+    score_breakdown = ats_result["score_breakdown"]
+
+    # 1. Missing technical skills
+    if missing_skills:
+        skills = ", ".join(missing_skills)
+
+        suggestions.append(
+            f"Consider learning and demonstrating these "
+            f"job-required skills: {skills}"
+        ) 
+
+    # 2. Experience improvement
+    if score_breakdown["experience_score"] < 20:
+        suggestions.append(
+            "Strengthen your experience section by including "
+            "relevant internships, work experience, responsibilities, "
+            "and employment durations, if applicable."
+        )
+
+    # 3. Project improvement
+    if score_breakdown["project_score"] < 15:
+        suggestions.append(
+            "Add relevant projects that demonstrate the technical "
+            "skills required for this role. Describe your contribution "
+            "and the technologies used."
+        )
+
+    # 4. Education improvement
+    if score_breakdown["education_score"] < 10:
+        suggestions.append(
+            "Clearly mention your educational qualification, "
+            "degree, specialization, and institution."
+        )
+
+    # 5. Keyword improvement
+    if score_breakdown["keyword_score"] < 10:
+        suggestions.append(
+            "Include relevant technical and role-specific keywords "
+            "from the job description naturally in your resume, "
+            "where they accurately reflect your experience."
+        )
+
+    return suggestions
