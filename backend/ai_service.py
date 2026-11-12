@@ -8,19 +8,20 @@ load_dotenv()
 
 # Read API configuration
 API_KEY = os.getenv("OPENAI_API_KEY")
-MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+MODEL = os.getenv("OPENAI_MODEL")
 
-if not API_KEY:
-    raise RuntimeError("OPENAI_API_KEY is missing from .env")
+client = None
 
-# Initialize OpenAI client
-client = OpenAI(api_key=API_KEY)
+if API_KEY:
+    client = OpenAI(api_key=API_KEY)
 
-def test_openai_connection():
-    response = client.responses.create(
-        model=MODEL,
-        input="Reply with exactly: API connection successful.",
-        max_output_tokens=20
-    )
+def generate_ai_suggestions(
+    resume_text: str,
+    job_description: str,
+    rule_based_suggestions: list[str]
+) -> list[str]:
 
-    return response.output_text
+    if not client:
+        return rule_based_suggestions
+
+    return rule_based_suggestions

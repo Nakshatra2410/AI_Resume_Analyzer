@@ -7,6 +7,7 @@ from schemas import UserCreate, UserLogin, AnalysisCreate
 from security import hash_password, create_access_token, verify_password
 from dependencies import get_current_user
 from analyzer import calculate_ats_score, generate_suggestions
+from ai_service import generate_ai_suggestions
 
 import uuid
 import fitz
@@ -276,7 +277,13 @@ def create_analysis(
         analysis_data.job_description
     )
 
-    suggestions = generate_suggestions(result)
+    rule_based_suggestions = generate_suggestions(result)
+
+    suggestions = generate_ai_suggestions(
+        resume_text=resume.extracted_text,
+        job_description=analysis_data.job_description,
+        rule_based_suggestions=rule_based_suggestions
+    )
 
     # 3. Save analysis in PostgreSQL
     new_analysis = Analysis(

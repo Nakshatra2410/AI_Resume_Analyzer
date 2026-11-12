@@ -5,7 +5,7 @@ SKILL_ALIASES = {
     "Java": ["java"],
     "Python": ["python"],
     "C++": ["c++", "cpp"],
-    "JavaScript": ["javascript", "js"],
+    "JavaScript": ["javascript"],
     "TypeScript": ["typescript", "ts"],
     "React": ["react", "react.js", "reactjs"],
     "Node.js": ["node.js", "nodejs"],
@@ -58,12 +58,12 @@ def extract_skills(text: str) -> list[str]:
             pattern = (
                 r"(?<![a-z0-9])"
                 + re.escape(alias.casefold())
-                + r"(?![s-z0-9])"
+                + r"(?![a-z0-9])"
             )
 
             if re.search(pattern, normalized_text):
                 found_skills.append(skill)
-            break
+                break
 
     return found_skills
 
@@ -392,6 +392,22 @@ def calculate_ats_score(
         resume_text: str,
         job_description: str
 ) -> dict:
+
+    if not resume_text or not job_description:
+        return {
+            "ats_score": 0.0,
+            "score_breakdown": {
+            "skills_score": 0.0,
+            "experience_score": 0.0,
+            "project_score": 0.0,
+            "education_score": 0.0,
+            "keyword_score": 0.0
+        },
+        "matched_skills": [],
+        "missing_skills": [],
+        "resume_skills": [],
+        "required_skills": []
+    }
 
     # 1. Skills score (max 40)
     skill_result = compare_skills(
